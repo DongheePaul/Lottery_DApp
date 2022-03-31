@@ -168,6 +168,7 @@ class App extends Component {
   //리액트 실행 시 가장 먼저 시작되는 함수.
   async componentDidMount() {
     await this.initWeb3();
+    await this.getBetEvents();
   }
   initWeb3 = async () => {
     if (window.ethereum) {
@@ -176,8 +177,6 @@ class App extends Component {
       try {
         // Request account access if needed
         await window.ethereum.enable();
-        // Acccounts now exposed
-        // this.web3.eth.sendTransaction({/* ... */});
       } catch (error) {
         // User denied account access...
         console.log(`User denied account access error : ${error}`);
@@ -187,8 +186,6 @@ class App extends Component {
     else if (window.web3) {
       console.log("legacy mode");
       this.web3 = new Web3(Web3.currentProvider);
-      // Acccounts always exposed
-      // web3.eth.sendTransaction({/* ... */});
     }
     // Non-dapp browsers...
     else {
@@ -213,14 +210,22 @@ class App extends Component {
   bet = async () => {
     //get nonce. nonce = 특정 주소가 만든 트랜잭션의 갯수. 트랜잭션 리플레이를 방지하고 외부 유저의 개입 방지 기능. 트랜잭션 보내기 전에 항상 nonce를 담아서 보내야함. 메타마스크가 자체적으로 이 기능 수행해줌.
     let nonce = await this.web3.eth.getTransactionCount(this.account);
-    this.lotteryContract.methods
-      .betAndDistribute("0xcd")
-      .send({
-        from: this.account,
-        value: 5000000000000000,
-        gas: 300000,
-        nonce: nonce,
-      });
+    this.lotteryContract.methods.betAndDistribute("0xcd").send({
+      from: this.account,
+      value: 5000000000000000,
+      gas: 300000,
+      nonce: nonce,
+    });
+  };
+
+  getBetEvents = async () => {
+    const records = [];
+    //코드 상단에 있는 abi를 사용해 이벤트를 찾음.
+    let events = await this.lotteryContract.getPastEvents("BET", {
+      fromBlock: 0,
+      toBlock: "latest",
+    });
+    console.log(events);
   };
   render() {
     return (
