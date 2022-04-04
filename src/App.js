@@ -1,5 +1,4 @@
 import React, { Component } from "react";
-import logo from "./logo.svg";
 import "./App.css";
 
 import Web3 from "web3";
@@ -189,8 +188,18 @@ class App extends Component {
   //리액트 실행 시 가장 먼저 시작되는 함수.
   async componentDidMount() {
     await this.initWeb3();
-    await this.getBetEvents();
+    await this.pollData();
+    //setInterval(this.pollData, 3000);
   }
+
+  pollData = async () => {
+    await this.getPot();
+    await this.getBetEvents();
+    await this.getWinEvents();
+    await this.getFailEvents();
+    this.makeFinalRecords();
+  };
+
   initWeb3 = async () => {
     if (window.ethereum) {
       console.log("Recent mode");
@@ -229,35 +238,131 @@ class App extends Component {
     console.log(owner);
   };
   bet = async () => {
+    console.log("in bet function");
+    let challanges =
+      "0x" +
+      this.state.challenges[0].toLowerCase() +
+      this.state.challenges[1].toLowerCase();
     //get nonce. nonce = 특정 주소가 만든 트랜잭션의 갯수. 트랜잭션 리플레이를 방지하고 외부 유저의 개입 방지 기능. 트랜잭션 보내기 전에 항상 nonce를 담아서 보내야함. 메타마스크가 자체적으로 이 기능 수행해줌.
     let nonce = await this.web3.eth.getTransactionCount(this.account);
-    this.lotteryContract.methods.betAndDistribute("0xcd").send({
-      from: this.account,
-      value: 5000000000000000,
-      gas: 300000,
-      nonce: nonce,
-    });
+    this.lotteryContract.methods
+      .betAndDistribute(challanges)
+      .send({
+        from: this.account,
+        value: 5000000000000000,
+        gas: 300000,
+        nonce: nonce,
+      })
+      .on("transactionHash", (hash) => {
+        console.log("this is hash from callback from blockchain");
+        console.log(hash);
+        console.log("this is hash from callback from blockchain end");
+      });
   };
-
+  getPot = async () => {
+    let pot = await this.lotteryContract.methods.getPot().call();
+    let potString = this.web3.utils.fromWei(pot.toString(), "ether");
+    this.setState({ pot: potString });
+  };
   getBetEvents = async () => {
     const records = [];
-    //코드 상단에 있는 abi를 사용해 이벤트를 찾음.
     let events = await this.lotteryContract.getPastEvents("BET", {
       fromBlock: 0,
       toBlock: "latest",
     });
-    console.log(events);
+
+    // console.log("this is bet event ori =============");
+    // console.log(events);
+    // console.log("this is bet event ori ============= end ");
+    for (let i = 0; i < events.length; i++) {
+      const record = {};
+      record.index = parseInt(events[i].returnValues.index, 10).toString();
+      record.bettor = events[i].returnValues.bettor;
+      record.betBlockNumber = events[i].blockNumber;
+      record.targetBlockNumber =
+        events[i].returnValues.answerBlockNumber.toString();
+      record.challenges = events[i].returnValues.challenges;
+      record.win = "Not Revealed";
+      record.answer = "0x00";
+      records.unshift(record);
+    }
+    this.setState({ betRecords: records });
   };
 
-  // show pot money
+  getWinEvents = async () => {
+    const records = [];
+    let events = await this.lotteryContract.getPastEvents("WIN", {
+      fromBlock: 0,
+      toBlock: "latest",
+    });
 
-  // bet character selection button
+    for (let i = 0; i < events.length; i += 1) {
+      const record = {};
+      record.index = parseInt(events[i].returnValues.index, 10).toString();
+      record.amount = parseInt(events[i].returnValues.amount, 10).toString();
+      records.unshift(record);
+    }
+    this.setState({ winRecords: records });
+    console.log("this is win event =====");
+    console.log(records);
+  };
 
-  // bet button
+  getFailEvents = async () => {
+    const records = [];
+    let events = await this.lotteryContract.getPastEvents("FAIL", {
+      fromBlock: 0,
+      toBlock: "latest",
+    });
 
-  //history table
+    for (let i = 0; i < events.length; i += 1) {
+      const record = {};
+      record.index = parseInt(events[i].returnValues.index, 10).toString();
+      record.answer = events[i].returnValues.answer;
+      records.unshift(record);
+    }
+    console.log("this is fail event =====");
 
-  //index address challenge answer pot status answerBlockNumber
+    console.log(records);
+    this.setState({ failRecords: records });
+  };
+
+  makeFinalRecords = () => {
+    let f = 0,
+      w = 0;
+    const records = [...this.state.betRecords];
+    for (let i = 0; i < this.state.betRecords.length; i += 1) {
+      if (
+        this.state.winRecords.length > 0 &&
+        this.state.betRecords[i].index === this.state.winRecords[w].index
+      ) {
+        records[i].win = "WIN";
+        records[i].answer = records[i].challenges;
+        records[i].pot = this.web3.utils.fromWei(
+          this.state.winRecords[w].amount,
+          "ether"
+        );
+        if (this.state.winRecords.length - 1 > w) w++;
+      } else if (
+        this.state.winRecords.length > 0 &&
+        this.state.betRecords[i].index === this.state.failRecords[f].index
+      ) {
+        records[i].win = "FAIL";
+        records[i].answer = this.state.failRecords[f].answer;
+        records[i].pot = 0;
+        if (this.state.failRecords.length - 1 > f) f++;
+      } else {
+        records[i].answer = "Not Revealed";
+      }
+    }
+    this.setState({ finalRecords: records });
+  };
+
+  onClickCard = (_Character) => {
+    this.setState({
+      challenges: [this.state.challenges[1], _Character],
+    });
+  };
+
   getCard = (_Character, _cardStyle) => {
     let _card = "";
     if (_Character === "A") {
