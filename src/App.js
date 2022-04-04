@@ -189,7 +189,7 @@ class App extends Component {
   async componentDidMount() {
     await this.initWeb3();
     await this.pollData();
-    //setInterval(this.pollData, 3000);
+    setInterval(this.pollData, 3000);
   }
 
   pollData = async () => {
@@ -271,13 +271,13 @@ class App extends Component {
       toBlock: "latest",
     });
 
-    // console.log("this is bet event ori =============");
-    // console.log(events);
-    // console.log("this is bet event ori ============= end ");
     for (let i = 0; i < events.length; i++) {
       const record = {};
       record.index = parseInt(events[i].returnValues.index, 10).toString();
-      record.bettor = events[i].returnValues.bettor;
+      record.bettor =
+        events[i].returnValues.bettor.slice(0, 4) +
+        "..." +
+        events[i].returnValues.bettor.slice(40, 42);
       record.betBlockNumber = events[i].blockNumber;
       record.targetBlockNumber =
         events[i].returnValues.answerBlockNumber.toString();
