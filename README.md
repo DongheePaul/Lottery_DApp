@@ -4,7 +4,7 @@
 Ganache, Truffle, Node.js, React
 
 <h2>설명</h2>
-<img width="927" alt="Lottery 설명" src="https://user-images.githubusercontent.com/50191479/161495754-17f8225e-04b1-4552-8230-cc45437b9d4c.png">
+<img width="938" alt="Lottery 설명" src="https://user-images.githubusercontent.com/50191479/161497492-b6fef377-3f66-41c9-bc03-dd2b73e718ce.png">
 
 
 <h2>결과물</h2>
